@@ -4,16 +4,22 @@ Case study implementation for PS-2: vendor onboarding from submission to approva
 
 ## Current milestone
 
-The deterministic workflow engine is implemented first. It handles:
+Milestone 2 adds deterministic local-PDF document extraction to the workflow.
+It handles:
 
 - completeness checks
 - PAN/GSTIN/IFSC format validation
 - legal-name vs bank-account-holder normalization
-- duplicate-check placeholder
+- machine-readable PAN, GST, bank-proof, and incorporation PDF extraction
+- explicit missing, failed, unsupported, and extraction-required document states
+- duplicate checks transparently skipped in the stateless MVP
 - APPROVED / PENDING / REJECTED decisioning
 - explainable workflow steps and required actions
 
-AI-assisted document extraction and ambiguous identity resolution will be added as the next milestone.
+Use `document_references` to submit local fixture paths under `test-data/`. The
+legacy `documents` boolean object remains supported for backwards compatibility.
+Document extraction is deterministic; scanned or unsupported documents are
+reported for follow-up rather than treated as successfully extracted.
 
 ## Backend
 
@@ -31,7 +37,7 @@ Then open `http://localhost:8000/docs`.
 
 ```bash
 cd backend
-pytest -q
+python -m pytest -q
 ```
 
 ## Environment
