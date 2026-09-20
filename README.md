@@ -38,8 +38,4 @@ Then open `http://localhost:8000/docs`.
 ```bash
 cd backend
 python -m pytest -q
-```
-
-## Environment
-
-Copy `.env.example` to `.env` and add your OpenAI API key when we enable the AI layer.
+``

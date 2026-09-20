@@ -227,6 +227,28 @@ Milestone 3 result:
 * 44 tests passed
 * 1 upstream Starlette/AnyIO deprecation warning
 
+### Real AI Provider Milestone — Provider-Agnostic AI Layer (Gemini Integration)
+
+Completed and verified.
+
+Implemented:
+
+* Provider-neutral AI architecture (`BaseAiProvider` interface with `GeminiProvider` and `OpenAIProvider`)
+* Active runtime AI provider configured via `AI_PROVIDER=gemini` using `google-genai` SDK
+* Configurable Gemini model via `GEMINI_MODEL` (default: `gemini-3.6-flash`)
+* Configurable Gemini key via `GEMINI_API_KEY`
+* Optional OpenAI provider retained for backwards compatibility (`AI_PROVIDER=openai`)
+* Structured outputs validated using existing Pydantic schemas (`AiDocumentInterpretation`, `AiIdentityComparison`, `AiExplanation`)
+* Safe typed failure handling (`SUCCEEDED`, `UNAVAILABLE`, `FAILED`, `INVALID_OUTPUT`)
+* Isolated automated test suite using mock clients (`FakeGeminiClient`, `FakeOpenAIClient`), guaranteeing zero real API calls during pytest
+* Standalone developer smoke test script (`scripts/smoke_test_gemini.py`) for separate runtime verification
+* Deterministic decision engine remains in full control of final decisions
+
+Provider Milestone result:
+
+* 55 tests passed
+* 1 upstream Starlette/AnyIO deprecation warning
+
 ---
 
 ## Current API Behavior
@@ -328,6 +350,7 @@ Do not add unnecessary production infrastructure.
 
 2026-09-20:
 
-* Milestone 3 AI explanation generation integrated into workflow
-* AI tests use mocks; automated tests make no real OpenAI API calls
-* Full test result: 44 passed, 1 dependency deprecation warning
+* Provider-neutral AI architecture with Gemini provider (`google-genai`) implemented
+* AI explanation generation integrated into workflow
+* AI tests use mocks; automated tests make no real API calls
+* Full test result: 55 passed, 1 dependency deprecation warning

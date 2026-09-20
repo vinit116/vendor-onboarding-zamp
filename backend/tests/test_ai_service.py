@@ -1,10 +1,19 @@
+import os
 from types import SimpleNamespace
 
 import pytest
 
-from app.workflow.ai_service import AiInterpretationService, DEFAULT_OPENAI_MODEL
+from app.workflow.ai_service import (
+    DEFAULT_GEMINI_MODEL,
+    DEFAULT_OPENAI_MODEL,
+    AiInterpretationService,
+    GeminiProvider,
+    OpenAIProvider,
+)
 from app.workflow.engine import run_workflow
 from app.workflow.models import (
+    AiDocumentInterpretation,
+    AiExplanation,
     DecisionReason,
     DocumentReference,
     Documents,
@@ -38,7 +47,7 @@ class FakeResponses:
         if self.outputs:
             return SimpleNamespace(output_parsed=self.outputs.pop(0))
         if kwargs.get("text_format") and kwargs["text_format"].__name__ == "AiExplanation":
-            return SimpleNamespace(output_parsed={"explanation": "Mocked workflow explanation."})
+            return SimpleNamespace(output_parsed={"explanation": "Mocked OpenAI explanation."})
         raise IndexError("pop from empty list")
 
 
@@ -47,9 +56,41 @@ class FakeOpenAIClient:
         self.responses = FakeResponses(outputs, error)
 
 
+class FakeGeminiModels:
+    def __init__(self, outputs=None, error=None):
+        self.outputs = list(outputs or [])
+        self.error = error
+        self.calls = []
+
+    def generate_content(self, model, contents, config=None):
+        self.calls.append({"model": model, "contents": contents, "config": config})
+        if self.error:
+            raise self.error
+        if self.outputs:
+            out = self.outputs.pop(0)
+            if isinstance(out, str):
+                return SimpleNamespace(text=out)
+            import json
+            return SimpleNamespace(text=json.dumps(out))
+        if config and hasattr(config, "response_schema") and config.response_schema == AiExplanation:
+            import json
+            return SimpleNamespace(text=json.dumps({"explanation": "Mocked Gemini explanation."}))
+        raise IndexError("pop from empty list")
+
+
+class FakeGeminiClient:
+    def __init__(self, outputs=None, error=None):
+        self.models = FakeGeminiModels(outputs, error)
+
+
 def service_with(outputs=None, error=None):
     client = FakeOpenAIClient(outputs, error)
     return AiInterpretationService(api_key="test-key", client=client), client
+
+
+def gemini_service_with(outputs=None, error=None):
+    client = FakeGeminiClient(outputs, error)
+    return AiInterpretationService(provider_name="gemini", api_key="test-key", client=client), client
 
 
 def make(**changes):
@@ -72,6 +113,10 @@ def fixture_references(scenario):
         for document_type, filename in filenames.items()
     ]
 
+
+# ============================================================================
+# OpenAI Provider Tests
+# ============================================================================
 
 def test_ai_extraction_returns_schema_valid_typed_data():
     service, client = service_with([{
@@ -232,7 +277,7 @@ def test_missing_information_remains_pending_without_ai():
     assert not any(call["text_format"].__name__ == "AiIdentityComparison" for call in client.responses.calls)
 
 
-def test_ai_explanation_returns_schema_valid_typed_data():
+def test_openai_explanation_returns_schema_valid_typed_data():
     service, client = service_with([{
         "explanation": "Vendor onboarding submission approved."
     }])
@@ -251,8 +296,9 @@ def test_ai_explanation_returns_schema_valid_typed_data():
     assert client.responses.calls[0]["text_format"].__name__ == "AiExplanation"
 
 
-def test_ai_explanation_unavailable_is_safe():
-    service = AiInterpretationService(api_key="")
+def test_openai_explanation_unavailable_is_safe():
+    provider = OpenAIProvider(api_key="")
+    service = AiInterpretationService(provider=provider)
     facts = WorkflowExplanationFacts(
         status="APPROVED",
         reason="All required information is present.",
@@ -340,16 +386,148 @@ def test_deterministic_decision_unchanged_when_ai_explanation_fails():
     assert explanation_trace.status == "FAILED"
 
 
-def test_no_real_openai_api_calls_during_pytest():
-    service = AiInterpretationService(api_key="")
-    assert service.client is None
-    attempt = service.generate_explanation(
-        WorkflowExplanationFacts(
-            status="APPROVED",
-            reason="All info present.",
-            reasons=[],
-            required_actions=[],
-        )
-    )
-    assert attempt.status == "UNAVAILABLE"
+# ============================================================================
+# Gemini Provider Tests (Required for Provider Architecture)
+# ============================================================================
 
+def test_gemini_provider_receives_expected_request():
+    service, client = gemini_service_with([{
+        "extracted_fields": {
+            "legal_name": "Acme Technologies Pvt Ltd",
+            "gstin": "27ABCDE1234F1Z5",
+        },
+        "explanation": "GST fields extracted.",
+    }])
+
+    attempt = service.extract_document_fields("GST_CERTIFICATE", "GSTIN: 27ABCDE1234F1Z5")
+
+    assert attempt.status == "SUCCEEDED"
+    assert client.models.calls[0]["model"] == DEFAULT_GEMINI_MODEL
+    assert "GST_CERTIFICATE" in client.models.calls[0]["contents"]
+    assert client.models.calls[0]["config"].response_schema == AiDocumentInterpretation
+
+
+def test_gemini_structured_output_is_parsed_into_pydantic_model():
+    service, _ = gemini_service_with([{
+        "extracted_fields": {"pan": "ABCDE1234F"},
+        "explanation": "PAN extracted successfully.",
+    }])
+
+    attempt = service.extract_document_fields("PAN", "PAN: ABCDE1234F")
+
+    assert attempt.status == "SUCCEEDED"
+    assert attempt.interpretation.extracted_fields.pan == "ABCDE1234F"
+
+
+def test_gemini_document_extraction_succeeds():
+    service, _ = gemini_service_with([{
+        "extracted_fields": {"holder_name": "Acme Tech", "pan": "ABCDE1234F"},
+        "explanation": "Extracted labeled fields.",
+    }])
+
+    attempt = service.extract_document_fields("PAN", "PAN Holder Name: Acme Tech\nPAN: ABCDE1234F")
+
+    assert attempt.status == "SUCCEEDED"
+    assert attempt.interpretation.extracted_fields.holder_name == "Acme Tech"
+
+
+def test_gemini_identity_comparison_succeeds():
+    service, _ = gemini_service_with([{
+        "outcome": "MATCH",
+        "confidence": 0.95,
+        "explanation": "Entities are identical.",
+    }])
+
+    attempt = service.compare_identity_names("Acme Tech Pvt Ltd", "Acme Tech Private Limited")
+
+    assert attempt.status == "SUCCEEDED"
+    assert attempt.comparison.outcome == "MATCH"
+    assert attempt.comparison.confidence == 0.95
+
+
+def test_gemini_explanation_succeeds():
+    service, _ = gemini_service_with([{
+        "explanation": "Gemini explanation: Vendor onboarding is approved."
+    }])
+    facts = WorkflowExplanationFacts(
+        status="APPROVED",
+        reason="All required info present.",
+        reasons=[DecisionReason(code="APPROVED", message="All required info present.")],
+        required_actions=[],
+    )
+
+    attempt = service.generate_explanation(facts)
+
+    assert attempt.status == "SUCCEEDED"
+    assert attempt.explanation.explanation == "Gemini explanation: Vendor onboarding is approved."
+
+
+def test_gemini_api_failure_becomes_failed():
+    service, _ = gemini_service_with(error=RuntimeError("Gemini quota exceeded"))
+
+    attempt = service.extract_document_fields("PAN", "some text")
+
+    assert attempt.status == "FAILED"
+    assert "Gemini quota exceeded" in attempt.error
+
+
+def test_gemini_invalid_structured_output_becomes_invalid_output():
+    service, _ = gemini_service_with([{"invalid_key": "unexpected_schema"}])
+
+    attempt = service.extract_document_fields("PAN", "some text")
+
+    assert attempt.status == "INVALID_OUTPUT"
+    assert attempt.interpretation is None
+
+
+def test_missing_gemini_key_becomes_unavailable():
+    provider = GeminiProvider(api_key="")
+    service = AiInterpretationService(provider=provider)
+
+    attempt = service.extract_document_fields("PAN", "some text")
+
+    assert attempt.status == "UNAVAILABLE"
+    assert attempt.error == "GEMINI_API_KEY is not configured."
+
+
+def test_provider_selection_chooses_gemini_when_ai_provider_is_gemini(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+
+    service = AiInterpretationService()
+
+    assert service.provider_name == "gemini"
+    assert service.model == DEFAULT_GEMINI_MODEL
+
+
+def test_existing_openai_behavior_is_not_broken(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+
+    service = AiInterpretationService()
+
+    assert service.provider_name == "openai"
+    assert service.model == DEFAULT_OPENAI_MODEL
+
+
+def test_deterministic_workflow_decisions_remain_unchanged_on_gemini_failure():
+    service, _ = gemini_service_with(error=RuntimeError("Gemini unavailable"))
+
+    result = run_workflow(make(), ai_service=service)
+
+    assert result.status == "APPROVED"
+    assert result.reason_code == "APPROVED"
+    assert result.reasons[0].code == "APPROVED"
+    assert result.required_actions == []
+    explanation_trace = next(a for a in result.ai_assistance if a.capability == "EXPLANATION")
+    assert explanation_trace.status == "FAILED"
+
+
+def test_no_real_openai_or_gemini_api_calls_during_pytest():
+    openai_provider = OpenAIProvider(api_key="")
+    openai_service = AiInterpretationService(provider=openai_provider)
+    assert openai_service.extract_document_fields("PAN", "text").status == "UNAVAILABLE"
+
+    gemini_provider = GeminiProvider(api_key="")
+    gemini_service = AiInterpretationService(provider=gemini_provider)
+    assert gemini_service.extract_document_fields("PAN", "text").status == "UNAVAILABLE"
