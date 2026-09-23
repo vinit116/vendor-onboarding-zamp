@@ -401,13 +401,36 @@ Implemented:
 
 ---
 
+### Milestone 6 — Production Deployment Readiness
+
+Completed and verified.
+
+Implemented:
+
+* **Frontend API Environment Abstraction**:
+  * Configured `frontend/src/lib/api.ts` to consume `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_BASE_URL` dynamically, defaulting to `http://localhost:8000` for local development.
+  * Created `frontend/.env.example` documenting production HTTPS backend configuration for Vercel.
+* **Backend Production CORS & Port Configuration**:
+  * Configured `backend/app/main.py` CORS middleware to parse `ALLOWED_ORIGINS` from environment variables, enabling explicit production domain access (`https://*.vercel.app`) while preserving local development fallback (`http://localhost:3000`).
+  * Ensured uvicorn startup uses dynamic port binding (`0.0.0.0:$PORT`) for Render container deployment.
+  * Updated `backend/.env.example` with `ALLOWED_ORIGINS` example.
+* **Render Blueprint Infrastructure**:
+  * Created `render.yaml` defining a Python Web Service under `rootDir: backend`, configuring `buildCommand: pip install -r requirements.txt`, `startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT`, `/health` check path, and non-secret environment defaults (`AI_PROVIDER=gemini`, `GEMINI_MODEL=gemma-4-31b-it`).
+* **Absolute Path Audit & Fixture Resolution**:
+  * Confirmed zero hardcoded developer absolute paths (`/Users/`, `/Desktop/`) exist in runtime code.
+  * Verified document path resolution (`_resolve_fixture_path`) is 100% repository-relative (`PROJECT_ROOT / storage_reference`).
+* **Secrets & Upload Hygiene**:
+  * Confirmed `backend/.env` is ignored by Git. No API keys or secrets are committed or exposed to the frontend bundle.
+  * Runtime upload directory (`test-data/uploads/`) is dynamically created and ignored by Git.
+
+---
+
 ## Baseline
 
 2026-09-23:
 
-* Final UI/UX Refinement Pass Complete & Verified (`gemma-4-31b-it`).
+* Milestone 6 Production Deployment Readiness Complete & Verified (`gemma-4-31b-it`).
 * Python 3.12 (`backend/.venv`)
 * Node 18.20.8 / Next.js 14.2.35
 * Full backend test result: 60 passed, 1 dependency deprecation warning
-* Real Gemma application-level smoke test: SUCCEEDED
-* Next.js production build: 0 errors
+* Next.js production build: 0 errors (7/7 static pages prerendered)

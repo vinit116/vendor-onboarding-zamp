@@ -12,12 +12,27 @@ from app.workflow.ai_service import AiInterpretationService
 from app.workflow.engine import run_workflow
 from app.workflow.models import DocumentReference, VendorSubmission, WorkflowResult
 
+import os
+
 app = FastAPI(title="Zamp Vendor Onboarding Operations Console", version="0.1.0")
+
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+if allowed_origins_env:
+    origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+else:
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
+
+allow_all = "*" in origins
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=origins if not allow_all else ["*"],
+    allow_credentials=not allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
 )
