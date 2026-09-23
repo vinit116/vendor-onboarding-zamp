@@ -1,3 +1,4 @@
+import io
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -23,6 +24,15 @@ VALID_PAYLOAD = {
 }
 
 
+def test_system_status_endpoint():
+    response = client.get("/api/system/status")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "healthy"
+    assert "ai_provider" in body
+    assert "ai_model" in body
+
+
 def test_vendor_onboarding_returns_complete_workflow_response():
     response = client.post("/api/workflows/vendor-onboarding", json=VALID_PAYLOAD)
 
@@ -42,6 +52,15 @@ def test_vendor_onboarding_returns_complete_workflow_response():
     duplicate = next(step for step in body["steps"] if step["key"] == "duplicate")
     assert duplicate["result"] == "SKIPPED"
     assert duplicate["details"]["availability"] == "UNAVAILABLE"
+
+
+def test_vendor_onboarding_streaming_endpoint():
+    response = client.post("/api/workflows/vendor-onboarding/stream", json=VALID_PAYLOAD)
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+    lines = response.text.split("\n\n")
+    assert any("data: " in line and '"type": "step"' in line for line in lines)
+    assert any("data: " in line and '"type": "complete"' in line for line in lines)
 
 
 def test_omitted_documents_are_processed_as_pending_not_complete():
@@ -92,3 +111,28 @@ def test_vendor_onboarding_accepts_local_document_references():
     body = response.json()
     assert body["status"] == "APPROVED"
     assert {document["processing_status"] for document in body["processed_documents"]} == {"EXTRACTED"}
+
+
+def test_document_upload_endpoint_accepts_pdf():
+    fake_pdf = io.BytesIO(b"%PDF-1.4 Fake PDF Content")
+    response = client.post(
+        "/api/documents/upload",
+        files={"file": ("test_pan.pdf", fake_pdf, "application/pdf")},
+        data={"document_type": "PAN"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["document_type"] == "PAN"
+    assert body["filename"] == "test_pan.pdf"
+    assert body["storage_reference"].startswith("test-data/uploads/")
+
+
+def test_document_upload_rejects_non_pdf():
+    fake_txt = io.BytesIO(b"Hello text file")
+    response = client.post(
+        "/api/documents/upload",
+        files={"file": ("test_pan.txt", fake_txt, "text/plain")},
+        data={"document_type": "PAN"},
+    )
+    assert response.status_code == 400
+    assert "Only PDF files are supported" in response.json()["detail"]

@@ -1,41 +1,74 @@
-# Zamp AI Solutions Associate — Vendor Onboarding
+# Zamp AI Solutions Associate — Vendor Onboarding Operations Console
 
-Case study implementation for PS-2: vendor onboarding from submission to approval.
+Case study implementation for **PS-2: Vendor Onboarding Operations Console** from submission intake to final decisioning.
 
-## Current milestone
+## Overview
 
-Milestone 2 adds deterministic local-PDF document extraction to the workflow.
-It handles:
+This application provides an automated vendor onboarding verification system with a modern, high-density operations console.
 
-- completeness checks
-- PAN/GSTIN/IFSC format validation
-- legal-name vs bank-account-holder normalization
-- machine-readable PAN, GST, bank-proof, and incorporation PDF extraction
-- explicit missing, failed, unsupported, and extraction-required document states
-- duplicate checks transparently skipped in the stateless MVP
-- APPROVED / PENDING / REJECTED decisioning
-- explainable workflow steps and required actions
+### Key Capabilities
+- **Deterministic Workflow Engine**: Business rules strictly govern decisions (`APPROVED`, `PENDING`, `REJECTED`).
+- **Deterministic PDF Document Extractor**: Machine-readable document parser extracting PAN, GSTIN, Bank details, and Address from PDF files.
+- **Provider-Agnostic AI Service**: Uses Google Gemini API with `gemma-4-31b-it` as the active runtime model for interpretation and explanation generation, with safe fallback handling when AI is unavailable.
+- **Real-Time Live Workflow Streaming**: Server-Sent Events (SSE) stream 7 distinct workflow execution stages live to the console.
+- **High-Density Operations Console**: Built with Next.js 14, TypeScript, and Tailwind CSS. Offers Dashboard analytics, New Submission form, Demo Scenario selection, Live Verification view, and Run History (browser `localStorage`).
 
-Use `document_references` to submit local fixture paths under `test-data/`. The
-legacy `documents` boolean object remains supported for backwards compatibility.
-Document extraction is deterministic; scanned or unsupported documents are
-reported for follow-up rather than treated as successfully extracted.
+---
 
-## Backend
+## Running the Application Live
 
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+### Environment Configuration
+
+Configure `backend/.env` with your model and API key:
+
+```env
+AI_PROVIDER=gemini
+GEMINI_MODEL=gemma-4-31b-it
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-Then open `http://localhost:8000/docs`.
-
-## Tests
+### 1. Backend (FastAPI)
 
 ```bash
-cd backend
-python -m pytest -q
-``
+# From repository root
+PYTHONPATH=backend backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+The FastAPI backend will be available at `http://127.0.0.1:8000`.
+Swagger API documentation: `http://127.0.0.1:8000/docs`.
+
+### 2. Frontend (Next.js Operations Console)
+
+```bash
+cd frontend
+npm install # if not already installed
+npm run dev -- -p 3000
+```
+Open `http://localhost:3000` in your web browser to interact with the Vendor Operations Console.
+
+---
+
+## Running Tests
+
+### Backend Unit & Integration Tests (59 tests)
+
+```bash
+# From repository root
+PYTHONPATH=backend backend/.venv/bin/python -m pytest -q
+```
+
+### Frontend Typecheck & Production Build
+
+```bash
+cd frontend
+npm run build
+```
+
+---
+
+## Demo Scenarios for Interview Review
+
+In the **New Submission** screen, use the **Demo Scenarios** selector to quickly test:
+1. **Clean Vendor** $\rightarrow$ Expected outcome: `APPROVED`
+2. **Missing Bank Proof** $\rightarrow$ Expected outcome: `PENDING`
+3. **Company Name Variation** $\rightarrow$ Expected outcome: `APPROVED` (via identity normalization & AI comparison)
+4. **Material Identity Conflict** $\rightarrow$ Expected outcome: `REJECTED`

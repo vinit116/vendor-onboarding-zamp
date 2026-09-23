@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-app: #fcfcf9;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f5f4ef;
+  --border-muted: #e7e5e4;
+  --border-subtle: #f0eee6;
+  --text-primary: #1c1917;
+  --text-secondary: #78716c;
+  --text-tertiary: #a8a29e;
+  
+  --accent-gold: #d97706;
+  --accent-gold-hover: #b45309;
+  --accent-gold-light: #fffbeb;
+  
+  --status-approved-bg: #ecfdf5;
+  --status-approved-text: #047857;
+  --status-approved-border: #a7f3d0;
+
+  --status-pending-bg: #fffbeb;
+  --status-pending-text: #b45309;
+  --status-pending-border: #fde68a;
+
+  --status-rejected-bg: #fff1f2;
+  --status-rejected-text: #be123c;
+  --status-rejected-border: #fecdd3;
+}
+
+body {
+  color: var(--text-primary);
+  background-color: var(--bg-app);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom Scrollbar for B2B Ops Console */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d6d3d1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a29e;
+}

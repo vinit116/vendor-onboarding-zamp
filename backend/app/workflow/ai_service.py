@@ -19,7 +19,7 @@ from .models import (
 )
 
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
-DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
+DEFAULT_GEMINI_MODEL = "gemma-4-31b-it"
 
 
 class BaseAiProvider(ABC):

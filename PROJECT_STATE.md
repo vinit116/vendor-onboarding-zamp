@@ -227,7 +227,7 @@ Milestone 3 result:
 * 44 tests passed
 * 1 upstream Starlette/AnyIO deprecation warning
 
-### Real AI Provider Milestone — Provider-Agnostic AI Layer (Gemini Integration)
+### Real AI Provider Milestone — Provider-Agnostic AI Layer (Gemini & Gemma 4 31B IT Integration)
 
 Completed and verified.
 
@@ -235,18 +235,19 @@ Implemented:
 
 * Provider-neutral AI architecture (`BaseAiProvider` interface with `GeminiProvider` and `OpenAIProvider`)
 * Active runtime AI provider configured via `AI_PROVIDER=gemini` using `google-genai` SDK
-* Configurable Gemini model via `GEMINI_MODEL` (default: `gemini-3.6-flash`)
+* Active default runtime model set to `gemma-4-31b-it` via `GEMINI_MODEL=gemma-4-31b-it`
 * Configurable Gemini key via `GEMINI_API_KEY`
 * Optional OpenAI provider retained for backwards compatibility (`AI_PROVIDER=openai`)
 * Structured outputs validated using existing Pydantic schemas (`AiDocumentInterpretation`, `AiIdentityComparison`, `AiExplanation`)
 * Safe typed failure handling (`SUCCEEDED`, `UNAVAILABLE`, `FAILED`, `INVALID_OUTPUT`)
 * Isolated automated test suite using mock clients (`FakeGeminiClient`, `FakeOpenAIClient`), guaranteeing zero real API calls during pytest
-* Standalone developer smoke test script (`scripts/smoke_test_gemini.py`) for separate runtime verification
+* Standalone developer smoke test script (`scripts/smoke_test_gemini.py`) for real-world connectivity verification with `gemma-4-31b-it`
 * Deterministic decision engine remains in full control of final decisions
 
 Provider Milestone result:
 
-* 55 tests passed
+* 59 tests passed
+* Real Gemma 4 31B IT application call verified successfully (`gemma-4-31b-it`)
 * 1 upstream Starlette/AnyIO deprecation warning
 
 ---
@@ -303,54 +304,78 @@ Decision precedence remains deterministic:
 
 ---
 
-## Next Milestone
+### Milestone 4 — Modern Operations Console & Full Integration
 
-Build the operator-facing frontend and connect it to the existing backend workflow.
+Completed and verified.
 
-The first UI should provide:
+Implemented:
 
-1. Vendor submission
-2. Document selection/upload experience
-3. Start verification
-4. Live workflow execution view
-5. Final decision with reasoning
-6. Run details suitable for the demo
+* **Next.js 14 App Router + TypeScript + Tailwind CSS Frontend**: Modern, high-density B2B operations console styled with restrained warm off-white background (`#fcfcf9`), dark charcoal text (`#1c1917`), gold/amber accents (`#d97706`), and clean operational status badges.
+* **Primary Navigation & Views**:
+  1. `Dashboard` (`/`): Key operations metrics (Total Runs, Approved, Pending, Rejected), search bar, and recent runs table.
+  2. `New Submission` (`/submissions/new`): High-density vendor form, demo scenario selector (Clean Vendor, Missing Bank Proof, Company Name Variation, Material Identity Conflict), and real PDF document drag-and-drop file upload.
+  3. `Run Details` (`/runs/[id]`): High-impact decision card, required actions banner, 7-stage workflow step timeline with detailed expanders, and AI assistance trace cards.
+  4. `Run History` (`/history`): Searchable and filterable history table powered by browser `localStorage` (`zamp_vendor_runs`).
+* **Document Upload Endpoint**: Added `POST /api/documents/upload` accepting multipart PDF files, validating size and format, generating safe server-side storage references (`test-data/uploads/`), and avoiding exposure of client filesystem paths.
+* **Real-time Event Streaming**: Added `POST /api/workflows/vendor-onboarding/stream` Server-Sent Events (SSE) endpoint to stream actual backend stage execution progress (`intake`, `completeness`, `format`, `documents`, `identity`, `duplicate`, `decision`) live to the UI without faking or artificial delays.
+* **System Status Indicator**: Persistent status indicator showing backend health, active AI provider (`gemini`), and model (`gemma-4-31b-it`).
+* **Testing & Verification**:
+  * 59 passed backend pytest tests (`PYTHONPATH=backend backend/.venv/bin/python -m pytest -q`).
+  * 0 build/lint/TypeScript errors on Next.js production build (`npm run build`).
 
-Keep the existing deterministic decision boundaries and AI service architecture unchanged.
+Milestone 4 result:
+
+* 59 backend tests passed
+* 0 frontend build errors
+* Verified end-to-end in browser with real Fast-API backend and Next.js operations console.
 
 ---
 
-## Important Decisions
+## Current API Behavior
 
-Keep business rules deterministic.
+`POST /api/workflows/vendor-onboarding` and `POST /api/workflows/vendor-onboarding/stream` accept a vendor submission and return:
 
-Use AI only where it provides value in interpreting messy or ambiguous input.
+* `run_id`
+* `status`
+* `reason`
+* `reason_code`
+* `reasons`
+* `required_actions`
+* `processed_documents`
+* visible workflow steps
+* vendor-facing message
 
-Do not allow an LLM to directly approve or reject a vendor.
+`POST /api/documents/upload` accepts a PDF file upload and returns:
 
-Prefer observable workflow steps over hidden automation.
+* `filename`
+* `storage_reference`
+* `size`
 
-Optimize for a reliable live demo rather than excessive feature scope.
+`GET /api/system/status` returns:
 
-Do not add unnecessary production infrastructure.
+* `status` ("healthy")
+* `ai_provider` ("gemini" | "openai" | "none")
+* `ai_model` ("gemma-4-31b-it")
+
+---
+
+## Known Limitations & Future Improvements
+
+* Persistence uses browser `localStorage` (no server database or PostgreSQL yet).
+* Duplicate check stage is explicitly marked as SKIPPED due to lack of historical database.
+* File upload stored in local `test-data/uploads/` directory rather than S3/cloud storage.
+* OCR/multimodal image processing for scanned document images is planned for future iterations.
+* Multi-country compliance logic excluded (focused strictly on India-based vendor onboarding).
 
 ---
 
 ## Baseline
 
-2026-09-18:
+2026-09-23:
 
-* Python 3.12
-* Node 18.20.8
-* Backend dependencies installed
-* pytest installed
-* Milestone 1 test result: 13 passed, 1 dependency deprecation warning
-* Milestone 2 dependency: `pypdf==6.10.0`
-* Milestone 2 test result: 23 passed, 1 dependency deprecation warning
-
-2026-09-20:
-
-* Provider-neutral AI architecture with Gemini provider (`google-genai`) implemented
-* AI explanation generation integrated into workflow
-* AI tests use mocks; automated tests make no real API calls
-* Full test result: 55 passed, 1 dependency deprecation warning
+* Gemma 4 31B IT Model Integration Complete & Verified (`gemma-4-31b-it`).
+* Python 3.12 (`backend/.venv`)
+* Node 18.20.8 / Next.js 14.2.35
+* Full backend test result: 59 passed, 1 dependency deprecation warning
+* Real Gemma application-level smoke test: SUCCEEDED
+* Frontend build: 0 errors
