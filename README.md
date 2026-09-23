@@ -49,7 +49,7 @@ Open `http://localhost:3000` in your web browser to interact with the Vendor Ope
 
 ## Running Tests
 
-### Backend Unit & Integration Tests (59 tests)
+### Backend Unit & Integration Tests (60 tests)
 
 ```bash
 # From repository root
@@ -67,8 +67,9 @@ npm run build
 
 ## Demo Scenarios for Interview Review
 
-In the **New Submission** screen, use the **Demo Scenarios** selector to quickly test:
+In the **New Submission** screen, use the **Quick Start** selector to test:
 1. **Clean Vendor** $\rightarrow$ Expected outcome: `APPROVED`
 2. **Missing Bank Proof** $\rightarrow$ Expected outcome: `PENDING`
-3. **Company Name Variation** $\rightarrow$ Expected outcome: `APPROVED` (via identity normalization & AI comparison)
+3. **Company Name Variation** $\rightarrow$ Expected outcome: `APPROVED` (via normalization & AI review)
 4. **Material Identity Conflict** $\rightarrow$ Expected outcome: `REJECTED`
+5. **Tax Identifier Mismatch** $\rightarrow$ Expected outcome: `REJECTED` (cross-field GSTIN-PAN mismatch)

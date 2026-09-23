@@ -369,22 +369,35 @@ Milestone 4 result:
 
 ---
 
-### PS-2 Compliance Audit & Backend Hardening Milestone
+### Milestone 5 — Final Operator UI/UX Refinement Pass
 
 Completed and verified.
 
 Implemented:
 
-* **PS-2 Requirements Audit**: Audited backend workflow end-to-end against the official Zamp PS-2 Candidate Guide (`asa-case-study-candidate.pdf`). Verified inputs, completeness checks, format checks, identity reconciliation, decision boundaries, edge case coverage, and vendor messaging.
-* **Cross-Field Tax Consistency Validation**: Added cross-field tax identifier validation in `backend/app/workflow/validators.py`. Validates that the 10-character PAN embedded within a 15-character India GSTIN matches the submitted PAN field, rejecting submissions where GSTIN state-tax registration does not correspond to the legal entity's PAN.
-* **Explicit MVP Assumptions Defensibility**: Documented formal MVP assumptions for interview presentation (India-only geographical scope, standard 4 compliance documents, machine-readable PDF expectation, internal consistency definition of credibility, stateless registry duplicate check status, and advisory AI role boundary).
-* **Test Suite Expansion**: Added unit test (`test_gstin_embedded_pan_mismatch_is_rejected`) verifying cross-field tax consistency. Total backend tests increased to 60 passing tests.
-
-Audit Milestone result:
-
-* 60 backend pytest tests passed (`PYTHONPATH=backend backend/.venv/bin/python -m pytest -q`).
-* Next.js production build: 0 errors (`npm run build`).
-* Backend fully compliant and ready for final UI polish + demo rehearsal.
+* **Single Primary Decision Representation**:
+  * Fixed Run Details hierarchy to feature ONE primary decision presentation in the top hero banner (`APPROVED`, `PENDING`, `REJECTED`).
+  * Removed repetitive status badges and duplicate decision statements across stages.
+  * Neutralized alert callout title to `"Action required"` for all non-approved runs.
+  * Fixed final stage timeline badge: uses neutral/completed state ("Recorded") instead of a misleading green "PASSED" badge on rejected runs.
+* **Developer Jargon & Reason Code Removal**:
+  * Removed technical reason codes (e.g., `IDENTITY_CONFLICT`) from header, dashboard, and primary UI tables.
+  * Moved all raw reason codes, run IDs, and JSON payloads into a collapsible "Technical Debug Details" drawer.
+* **Refined AI Presentation & Contextual Exposure**:
+  * AI is presented strictly as an "AI-assisted interpretation" supporting capability, not a decision-maker or workflow stage.
+  * Prominent AI cards render ONLY when AI actually ran/contributed to the run (CASE B).
+  * Deterministic runs display a subtle inline compliance note ("Review completed using standard compliance rules") without forcing a large AI sidebar (CASE A).
+  * AI failure/unavailability uses clean fallback language ("The workflow continued using deterministic validation") without exposing HTTP 503, raw stack traces, or API error objects (CASE C).
+* **6-Stage Visible Operator Timeline**:
+  * Removed "Vendor Registry Duplicate Check" stage from the visible operator-facing workflow timeline and live SSE modal.
+  * Documented limitation: Duplicate vendor detection is a future production enhancement that requires a persistent vendor registry.
+* **Human-Readable Document & Identity Evidence**:
+  * Extracted document labels mapped to natural capitalized names ("Account holder", "Masked account number", "IFSC", "PAN", "GSTIN", "Registered address").
+  * Formatted identity evidence cleanly ("Registered legal entity", "Bank account holder", "Match" / "No match" / "AI-assisted review").
+* **Unified Visual Language & Quality Verification**:
+  * Consistent typography, spacing, and neutral color system across Dashboard, New Submission, Live Run SSE overlay, Run Details, and History.
+  * Verified 60 passed backend tests (`PYTHONPATH=backend backend/.venv/bin/python -m pytest -q`).
+  * Verified Next.js production build (`npm run build` — 0 errors).
 
 ---
 
@@ -392,9 +405,9 @@ Audit Milestone result:
 
 2026-09-23:
 
-* PS-2 Compliance Audit & Hardening Complete (`gemma-4-31b-it`).
+* Final UI/UX Refinement Pass Complete & Verified (`gemma-4-31b-it`).
 * Python 3.12 (`backend/.venv`)
 * Node 18.20.8 / Next.js 14.2.35
 * Full backend test result: 60 passed, 1 dependency deprecation warning
 * Real Gemma application-level smoke test: SUCCEEDED
-* Frontend build: 0 errors
+* Next.js production build: 0 errors

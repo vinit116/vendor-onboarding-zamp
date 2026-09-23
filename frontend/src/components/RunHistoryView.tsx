@@ -26,7 +26,7 @@ export function RunHistoryView() {
   }, []);
 
   const handleClear = () => {
-    if (confirm('Clear all stored run history from local storage?')) {
+    if (confirm('Clear stored vendor onboarding run history?')) {
       clearStoredRuns();
       setRuns([]);
     }
@@ -40,7 +40,7 @@ export function RunHistoryView() {
       !q ||
       (run.vendor_name && run.vendor_name.toLowerCase().includes(q)) ||
       run.run_id.toLowerCase().includes(q) ||
-      run.reason_code.toLowerCase().includes(q);
+      run.reason.toLowerCase().includes(q);
     return matchesStatus && matchesQuery;
   });
 
@@ -51,10 +51,10 @@ export function RunHistoryView() {
         <div>
           <h1 className="text-2xl font-bold text-[#1c1917] tracking-tight flex items-center gap-2">
             <History className="w-6 h-6 text-[#d97706]" />
-            Workflow Run History
+            Vendor Onboarding Run History
           </h1>
           <p className="text-sm text-[#78716c] mt-1">
-            Persisted review logs of past vendor onboarding workflow runs.
+            Operational record of vendor compliance reviews and onboarding decisions.
           </p>
         </div>
 
@@ -84,7 +84,7 @@ export function RunHistoryView() {
                     : 'text-[#78716c] hover:text-[#1c1917]'
                 }`}
               >
-                {status}
+                {status === 'ALL' ? 'All Reviews' : status}
               </button>
             )
           )}
@@ -96,7 +96,7 @@ export function RunHistoryView() {
             <Search className="w-3.5 h-3.5 text-[#a8a29e] absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search vendor name or run ID..."
+              placeholder="Search vendor name or reference ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 pr-3 py-1.5 text-xs bg-white border border-[#e7e5e4] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#d97706] w-64 text-[#1c1917]"
@@ -107,7 +107,7 @@ export function RunHistoryView() {
             <button
               onClick={handleClear}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#78716c] hover:text-rose-600 hover:bg-rose-50 transition-colors"
-              title="Clear all stored history"
+              title="Clear stored run history"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Clear History</span>
@@ -123,10 +123,10 @@ export function RunHistoryView() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#e7e5e4] bg-[#faf9f5] text-[11px] font-semibold text-[#78716c] uppercase tracking-wider">
-                  <th className="py-3 px-4">Vendor</th>
-                  <th className="py-3 px-4">Run ID</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Reason Code</th>
+                  <th className="py-3 px-4">Vendor Entity</th>
+                  <th className="py-3 px-4">Reference ID</th>
+                  <th className="py-3 px-4">Decision Outcome</th>
+                  <th className="py-3 px-4">Reason Summary</th>
                   <th className="py-3 px-4">Executed Date</th>
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
@@ -139,7 +139,7 @@ export function RunHistoryView() {
                     className="hover:bg-[#fcfcf9] transition-colors cursor-pointer group"
                   >
                     <td className="py-3.5 px-4 font-semibold text-[#1c1917]">
-                      {run.vendor_name || 'Unknown Vendor'}
+                      {run.vendor_name || 'Vendor Submission'}
                     </td>
                     <td className="py-3.5 px-4 font-mono text-[#78716c] font-medium text-[11px]">
                       {run.run_id}
@@ -147,17 +147,23 @@ export function RunHistoryView() {
                     <td className="py-3.5 px-4">
                       <StatusBadge status={run.status} />
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-[#44403c] text-[11px]">
-                      {run.reason_code}
+                    <td className="py-3.5 px-4 text-[#44403c] max-w-xs truncate">
+                      {run.reason}
                     </td>
                     <td className="py-3.5 px-4 text-[#78716c] text-[11px]">
                       {run.timestamp
-                        ? new Date(run.timestamp).toLocaleString()
+                        ? new Date(run.timestamp).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
                         : 'Recent'}
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#d97706] group-hover:translate-x-0.5 transition-transform">
-                        Inspect <ArrowRight className="w-3.5 h-3.5" />
+                        Review Details <ArrowRight className="w-3.5 h-3.5" />
                       </span>
                     </td>
                   </tr>
@@ -167,8 +173,8 @@ export function RunHistoryView() {
           </div>
         ) : (
           <div className="p-12 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-[#f5f4ef] flex items-center justify-center text-[#a8a29e] mx-auto">
-              <ShieldCheck className="w-6 h-6 text-[#d97706]" />
+            <div className="w-12 h-12 rounded-full bg-[#faf9f5] border border-[#e7e5e4] flex items-center justify-center text-[#d97706] mx-auto shadow-xs">
+              <ShieldCheck className="w-6 h-6" />
             </div>
             <div className="max-w-sm mx-auto">
               <h3 className="text-sm font-semibold text-[#1c1917]">

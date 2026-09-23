@@ -88,37 +88,37 @@ export function Sidebar() {
       {/* Footer System Status */}
       <div className="p-4 border-t border-[#e7e5e4] bg-[#faf9f5]">
         <div className="space-y-2">
-          {/* Backend Status */}
+          {/* Operations Engine Status */}
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-[#78716c] font-medium">Backend API</span>
+            <span className="text-[#78716c] font-medium">Compliance Engine</span>
             <div className="flex items-center gap-1.5 font-medium">
               {systemStatus.status === 'healthy' ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-emerald-700">Online</span>
+                  <span className="text-emerald-700 font-semibold">Operational</span>
                 </>
               ) : (
                 <>
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span className="text-amber-700">Offline</span>
+                  <span className="text-amber-700 font-semibold">Offline</span>
                 </>
               )}
             </div>
           </div>
 
-          {/* AI Provider Status */}
+          {/* AI Assistance Status */}
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-[#78716c] font-medium flex items-center gap-1">
-              <Cpu className="w-3 h-3 text-[#d97706]" /> Provider
+              <Cpu className="w-3 h-3 text-[#d97706]" /> AI Review
             </span>
-            <span className="font-mono text-[10px] text-[#44403c] uppercase bg-[#e7e5e4] px-1.5 py-0.5 rounded font-semibold">
-              {systemStatus.ai_provider}
+            <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-semibold">
+              Available
             </span>
           </div>
 
-          {/* Active Model */}
-          <div className="text-[10px] font-mono text-[#a8a29e] truncate pt-0.5 border-t border-[#e7e5e4]/60">
-            Model: {systemStatus.ai_model}
+          {/* Business Policy Note */}
+          <div className="text-[10px] text-[#a8a29e] pt-1 border-t border-[#e7e5e4]/60 leading-tight">
+            Rules govern approval; AI assists review.
           </div>
         </div>
       </div>

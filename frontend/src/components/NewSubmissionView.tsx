@@ -14,15 +14,28 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
+  XCircle,
+  Clock,
 } from 'lucide-react';
 import { DEMO_SCENARIOS, DemoScenario } from '@/lib/demoScenarios';
-import { uploadDocument, submitWorkflow } from '@/lib/api';
+import { uploadDocument, streamWorkflow, submitWorkflow } from '@/lib/api';
 import { saveRun } from '@/lib/storage';
 import {
   DocumentReference,
   DocumentType,
+  StepResult,
   VendorSubmissionPayload,
+  WorkflowResult,
 } from '@/lib/types';
+
+const STAGE_LABELS: Record<string, string> = {
+  intake: '1. Intake & Scope Review',
+  completeness: '2. Completeness Check',
+  format: '3. Tax Identifier & Format Validation',
+  documents: '4. Verification Document Processing',
+  identity: '5. Legal Entity vs Banking Identity',
+  decision: '6. Final Onboarding Decision',
+};
 
 export function NewSubmissionView() {
   const router = useRouter();
@@ -47,7 +60,12 @@ export function NewSubmissionView() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Load a Demo Scenario
+  // Live SSE Stage Streaming State
+  const [liveStreamActive, setLiveStreamActive] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState<Record<string, StepResult>>({});
+  const [currentRunningStage, setCurrentRunningStage] = useState<string | null>(null);
+
+  // Load a Quick Start Scenario
   const handleSelectDemo = (scenario: DemoScenario) => {
     setSelectedDemoId(scenario.id);
     const p = scenario.payload;
@@ -82,7 +100,6 @@ export function NewSubmissionView() {
 
     try {
       const docRef = await uploadDocument(file, docType);
-      // Replace existing ref of same docType or append
       setDocumentRefs((prev) => [
         ...prev.filter((d) => d.document_type !== docType),
         docRef,
@@ -103,7 +120,7 @@ export function NewSubmissionView() {
   const getDocRef = (docType: DocumentType) =>
     documentRefs.find((d) => d.document_type === docType);
 
-  // Submit & Run Verification
+  // Submit & Run Verification via SSE Stream
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -117,19 +134,22 @@ export function NewSubmissionView() {
       return;
     }
     if (pan.length !== 10) {
-      setErrorMsg('PAN must be exactly 10 characters.');
+      setErrorMsg('PAN must be exactly 10 characters (e.g. ABCDE1234F).');
       return;
     }
     if (gstin.length !== 15) {
-      setErrorMsg('GSTIN must be exactly 15 characters.');
+      setErrorMsg('GSTIN must be exactly 15 characters (e.g. 27ABCDE1234F1Z5).');
       return;
     }
     if (ifsc.length !== 11) {
-      setErrorMsg('IFSC code must be exactly 11 characters.');
+      setErrorMsg('IFSC code must be exactly 11 characters (e.g. ABCD0123456).');
       return;
     }
 
     setSubmitting(true);
+    setLiveStreamActive(true);
+    setCompletedSteps({});
+    setCurrentRunningStage('intake');
 
     const payload: VendorSubmissionPayload = {
       legal_name: legalName.trim(),
@@ -145,13 +165,37 @@ export function NewSubmissionView() {
     };
 
     try {
-      const result = await submitWorkflow(payload);
-      saveRun(result, payload.legal_name);
-      router.push(`/runs/${result.run_id}`);
+      await streamWorkflow(
+        payload,
+        (step: StepResult) => {
+          setCompletedSteps((prev) => ({ ...prev, [step.key]: step }));
+          // Set next stage as running
+          const keys = Object.keys(STAGE_LABELS);
+          const idx = keys.indexOf(step.key);
+          if (idx !== -1 && idx < keys.length - 1) {
+            setCurrentRunningStage(keys[idx + 1]);
+          } else {
+            setCurrentRunningStage(null);
+          }
+        },
+        (result: WorkflowResult) => {
+          saveRun(result, payload.legal_name);
+          setTimeout(() => {
+            router.push(`/runs/${result.run_id}`);
+          }, 400);
+        },
+        async (error: Error) => {
+          console.warn('SSE stream fallback to direct POST:', error.message);
+          const directResult = await submitWorkflow(payload);
+          saveRun(directResult, payload.legal_name);
+          router.push(`/runs/${directResult.run_id}`);
+        }
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to execute onboarding workflow';
       setErrorMsg(msg);
       setSubmitting(false);
+      setLiveStreamActive(false);
     }
   };
 
@@ -163,25 +207,20 @@ export function NewSubmissionView() {
           New Vendor Submission
         </h1>
         <p className="text-sm text-[#78716c] mt-1">
-          Enter vendor onboarding declarations and attach machine-readable PDF verification documents.
+          Submit vendor details and required verification documents for compliance review.
         </p>
       </div>
 
-      {/* Demo Scenario Preset Selector */}
+      {/* Quick Start Demo Data Selector */}
       <div className="bg-[#faf9f5] p-5 rounded-xl border border-[#e7e5e4] space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#d97706]" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-[#1c1917]">
-              Rehearsal Demo Scenarios
-            </h2>
-          </div>
-          <span className="text-[11px] text-[#78716c]">
-            Click a scenario to auto-fill fictional test data
-          </span>
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-[#d97706]" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[#1c1917]">
+            QUICK START
+          </h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
           {DEMO_SCENARIOS.map((scenario) => {
             const isSelected = selectedDemoId === scenario.id;
             return (
@@ -195,12 +234,12 @@ export function NewSubmissionView() {
                     : 'border-[#e7e5e4] bg-white hover:border-[#a8a29e]'
                 }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-1">
                   <span className="text-xs font-semibold text-[#1c1917]">
                     {scenario.name}
                   </span>
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
                       scenario.expectedOutcome === 'APPROVED'
                         ? 'bg-emerald-100 text-emerald-800'
                         : scenario.expectedOutcome === 'PENDING'
@@ -211,7 +250,7 @@ export function NewSubmissionView() {
                     {scenario.expectedOutcome}
                   </span>
                 </div>
-                <p className="text-[11px] text-[#78716c] mt-1.5 line-clamp-2 leading-tight">
+                <p className="text-[10px] text-[#78716c] mt-1.5 line-clamp-2 leading-tight">
                   {scenario.description}
                 </p>
               </button>
@@ -225,6 +264,83 @@ export function NewSubmissionView() {
         <div className="p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* Live Workflow Stage Execution Overlay */}
+      {liveStreamActive && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-2xl p-6 max-w-lg w-full space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-[#e7e5e4]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#1c1917] flex items-center justify-center text-white">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#d97706]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#1c1917]">
+                    Verification in progress
+                  </h3>
+                  <p className="text-[11px] text-[#78716c]">
+                    Executing compliance verification checks...
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              {Object.entries(STAGE_LABELS).map(([key, label]) => {
+                const step = completedSteps[key];
+                const isRunning = currentRunningStage === key;
+
+                return (
+                  <div
+                    key={key}
+                    className={`p-3 rounded-lg border transition-all flex items-center justify-between ${
+                      step
+                        ? step.status === 'PASSED'
+                          ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                          : step.status === 'WARNING'
+                          ? 'bg-amber-50/60 border-amber-200 text-amber-950'
+                          : 'bg-rose-50/60 border-rose-200 text-rose-950'
+                        : isRunning
+                        ? 'bg-amber-50/40 border-[#d97706] ring-1 ring-[#d97706]/30 text-[#1c1917]'
+                        : 'bg-[#faf9f5] border-[#e7e5e4] text-[#a8a29e]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {step ? (
+                        step.status === 'PASSED' ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : step.status === 'WARNING' ? (
+                          <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        )
+                      ) : isRunning ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-[#d97706] shrink-0" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full border-2 border-current shrink-0 opacity-40" />
+                      )}
+
+                      <span className="font-semibold text-xs">{label}</span>
+                    </div>
+
+                    <span className="text-[10px] font-mono uppercase font-bold">
+                      {step
+                        ? key === 'decision'
+                          ? 'Completed'
+                          : step.status === 'PASSED'
+                          ? 'Passed'
+                          : 'Needs attention'
+                        : isRunning
+                        ? 'Checking'
+                        : 'Waiting'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -269,7 +385,7 @@ export function NewSubmissionView() {
 
             <div>
               <label className="block text-xs font-medium text-[#44403c] mb-1">
-                Country
+                Country Scope
               </label>
               <input
                 type="text"
@@ -288,7 +404,7 @@ export function NewSubmissionView() {
                 required
                 value={registeredAddress}
                 onChange={(e) => setRegisteredAddress(e.target.value)}
-                placeholder="Full registered address..."
+                placeholder="Full registered office address..."
                 className="w-full px-3 py-2 text-xs border border-[#e7e5e4] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#d97706] text-[#1c1917]"
               />
             </div>
@@ -392,25 +508,22 @@ export function NewSubmissionView() {
           </div>
         </div>
 
-        {/* Section 4: Required Documents */}
+        {/* Section 4: Verification Documents */}
         <div className="bg-white p-6 rounded-xl border border-[#e7e5e4] shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-[#e7e5e4] pb-3">
             <div className="flex items-center gap-2">
               <UploadCloud className="w-4 h-4 text-[#d97706]" />
               <h2 className="text-sm font-semibold text-[#1c1917]">
-                Verification Documents (PDF)
+                Verification Documents
               </h2>
             </div>
-            <span className="text-[11px] text-[#78716c]">
-              Machine-readable PDF documents
-            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {(
               [
-                { type: 'PAN', label: 'PAN Card Document' },
-                { type: 'GST_CERTIFICATE', label: 'GST Registration Certificate' },
+                { type: 'PAN', label: 'PAN Card' },
+                { type: 'GST_CERTIFICATE', label: 'GST Certificate' },
                 { type: 'BANK_PROOF', label: 'Bank Proof / Cancelled Cheque' },
                 { type: 'INCORPORATION', label: 'Certificate of Incorporation' },
               ] as const
@@ -429,7 +542,7 @@ export function NewSubmissionView() {
                     </span>
                     {docRef && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Loaded
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Attached
                       </span>
                     )}
                   </div>
@@ -499,7 +612,7 @@ export function NewSubmissionView() {
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-[#d97706]" />
-                <span>Running Workflow...</span>
+                <span>Processing Checks...</span>
               </>
             ) : (
               <>
