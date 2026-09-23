@@ -14,13 +14,22 @@ def validate_submission(vendor: VendorSubmission) -> list[DecisionReason]:
             message="Vendor onboarding is currently available only for India.",
             fields=["country"],
         ))
-    if not PAN_RE.match(vendor.pan.upper()):
+    pan_valid = bool(PAN_RE.match(vendor.pan.upper()))
+    gstin_valid = bool(GSTIN_RE.match(vendor.gstin.upper()))
+
+    if not pan_valid:
         issues.append(DecisionReason(
             code="INVALID_PAN", message="PAN format is invalid.", fields=["pan"]
         ))
-    if not GSTIN_RE.match(vendor.gstin.upper()):
+    if not gstin_valid:
         issues.append(DecisionReason(
             code="INVALID_GSTIN", message="GSTIN format is invalid.", fields=["gstin"]
+        ))
+    elif pan_valid and vendor.gstin[2:12].upper() != vendor.pan.upper():
+        issues.append(DecisionReason(
+            code="INVALID_GSTIN",
+            message=f"GSTIN embedded PAN ({vendor.gstin[2:12].upper()}) does not match submitted PAN ({vendor.pan.upper()}).",
+            fields=["gstin", "pan"],
         ))
     if not IFSC_RE.match(vendor.ifsc.upper()):
         issues.append(DecisionReason(

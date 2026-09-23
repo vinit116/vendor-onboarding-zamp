@@ -149,6 +149,15 @@ def test_gstin_requires_india_specific_structure():
     assert result.reasons[0].code == "INVALID_GSTIN"
 
 
+def test_gstin_embedded_pan_mismatch_is_rejected():
+    result = run_workflow(make(pan="ABCDE1234F", gstin="27XYZAB9876C1Z5"))
+
+    assert result.status == "REJECTED"
+    assert result.reason_code == "VALIDATION_FAILED"
+    assert any(reason.code == "INVALID_GSTIN" and "embedded PAN" in reason.message for reason in result.reasons)
+
+
+
 def test_machine_readable_documents_are_extracted_and_approved():
     result = run_workflow(make(document_references=fixture_references("clean_vendor")))
     documents_step = steps_by_key(result)["documents"]

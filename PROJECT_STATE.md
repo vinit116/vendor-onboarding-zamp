@@ -369,13 +369,32 @@ Milestone 4 result:
 
 ---
 
+### PS-2 Compliance Audit & Backend Hardening Milestone
+
+Completed and verified.
+
+Implemented:
+
+* **PS-2 Requirements Audit**: Audited backend workflow end-to-end against the official Zamp PS-2 Candidate Guide (`asa-case-study-candidate.pdf`). Verified inputs, completeness checks, format checks, identity reconciliation, decision boundaries, edge case coverage, and vendor messaging.
+* **Cross-Field Tax Consistency Validation**: Added cross-field tax identifier validation in `backend/app/workflow/validators.py`. Validates that the 10-character PAN embedded within a 15-character India GSTIN matches the submitted PAN field, rejecting submissions where GSTIN state-tax registration does not correspond to the legal entity's PAN.
+* **Explicit MVP Assumptions Defensibility**: Documented formal MVP assumptions for interview presentation (India-only geographical scope, standard 4 compliance documents, machine-readable PDF expectation, internal consistency definition of credibility, stateless registry duplicate check status, and advisory AI role boundary).
+* **Test Suite Expansion**: Added unit test (`test_gstin_embedded_pan_mismatch_is_rejected`) verifying cross-field tax consistency. Total backend tests increased to 60 passing tests.
+
+Audit Milestone result:
+
+* 60 backend pytest tests passed (`PYTHONPATH=backend backend/.venv/bin/python -m pytest -q`).
+* Next.js production build: 0 errors (`npm run build`).
+* Backend fully compliant and ready for final UI polish + demo rehearsal.
+
+---
+
 ## Baseline
 
 2026-09-23:
 
-* Gemma 4 31B IT Model Integration Complete & Verified (`gemma-4-31b-it`).
+* PS-2 Compliance Audit & Hardening Complete (`gemma-4-31b-it`).
 * Python 3.12 (`backend/.venv`)
 * Node 18.20.8 / Next.js 14.2.35
-* Full backend test result: 59 passed, 1 dependency deprecation warning
+* Full backend test result: 60 passed, 1 dependency deprecation warning
 * Real Gemma application-level smoke test: SUCCEEDED
 * Frontend build: 0 errors
